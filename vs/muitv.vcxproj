@@ -76,9 +76,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="../blockpool.h" />
-    <ClInclude Include="../hashmap.h" />
     <ClInclude Include="../muitv.h" />
+    <ClInclude Include="..\block_pool.h" />
+    <ClInclude Include="..\function_info.h" />
+    <ClInclude Include="..\hash_map.h" />
+    <ClInclude Include="..\memory_block.h" />
+    <ClInclude Include="..\memory_stats.h" />
+    <ClInclude Include="..\source_info.h" />
+    <ClInclude Include="..\stack_element.h" />
+    <ClInclude Include="..\stack_info.h" />
+    <ClInclude Include="..\symbol_info.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="../muitv.cpp" />

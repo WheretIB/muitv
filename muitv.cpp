@@ -22,347 +22,46 @@ extern "C"
 #include <vector>
 #include <algorithm>
 
-#include "hashmap.h"
+#include "hash_map.h"
 
-// remove C++11
-// lowercase classes
-// unsigned -> size_t
-// less winapi
+#include "function_info.h"
+#include "source_info.h"
+#include "symbol_info.h"
+#include "stack_element.h"
+#include "memory_stats.h"
+#include "stack_info.h"
+#include "memory_block.h"
 
 namespace muitv
 {
-	unsigned d64Hash(const DWORD64& value)
+	namespace detail
 	{
-		return unsigned(value >> 4);
+		char* formatted_string(const char* src, ...)
+		{
+			static char temp[512];
+
+			va_list args;
+			va_start(args, src);
+
+			vsnprintf(temp, 512, src, args);
+
+			temp[511] = '\0';
+
+			return temp;
+		}
+
+		LRESULT CALLBACK window_proc(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam);
 	}
 
-	bool d64Compare(const DWORD64& lhs, const DWORD64& rhs)
+	struct memory_dashboard
 	{
-		return lhs == rhs;
-	}
-
-	char* FormattedString(const char* src, ...)
-	{
-		static char temp[512];
-
-		va_list args;
-		va_start(args, src);
-
-		vsnprintf(temp, 512, src, args);
-
-		temp[511] = '\0';
-
-		return temp;
-	}
-
-	struct FunctionInfo
-	{
-		FunctionInfo()
-		{
-			displacement64 = 0;
-
-			functionInfo = (SYMBOL_INFO*)symbolBuffer;
-		}
-
-		FunctionInfo(const FunctionInfo& rhs)
-		{
-			memcpy(this, &rhs, sizeof(FunctionInfo));
-
-			functionInfo = (SYMBOL_INFO*)symbolBuffer;
-		}
-
-		FunctionInfo& operator=(const FunctionInfo& rhs)
-		{
-			memcpy(this, &rhs, sizeof(FunctionInfo));
-
-			functionInfo = (SYMBOL_INFO*)symbolBuffer;
-
-			return *this;
-		}
-
-		static const size_t MAXSYMBOLNAMELENGTH = 512;
-		static const size_t SYMBOLBUFFERSIZE = sizeof(SYMBOL_INFO) + MAXSYMBOLNAMELENGTH - 1;
-
-		unsigned char symbolBuffer[SYMBOLBUFFERSIZE];
-
-		DWORD64 displacement64;
-		SYMBOL_INFO *functionInfo;
-	};
-
-	struct SourceInfo
-	{
-		SourceInfo()
-		{
-			displacement = 0;
-
-			memset(&sourceInfo, 0, sizeof(sourceInfo));
-		}
-
-		DWORD displacement;
-		IMAGEHLP_LINE64 sourceInfo;
-	};
-
-	struct SymbolInfo
-	{
-		SymbolInfo()
-		{
-			process = GetCurrentProcess();
-
-			SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
-	
-			SymInitialize(process, 0, true);
-		}
-
-		~SymbolInfo()
-		{
-			SymCleanup(process);
-		}
-
-		static SymbolInfo& instance()
-		{
-			static SymbolInfo inst;
-
-			return inst;
-		}
-
-		FunctionInfo* GetFunctionInfo(void* ptr)
-		{
-			DWORD64 w = reinterpret_cast<DWORD64>(ptr);
-
-			if(DWORD64 *remap = addressRemap.find(w))
-			{
-				if(FunctionInfo *target = functionMap.find(*remap))
-					return target;
-			}
-
-			FunctionInfo info;
-			memset(info.functionInfo, 0, FunctionInfo::SYMBOLBUFFERSIZE);
-			info.functionInfo->SizeOfStruct = sizeof(SYMBOL_INFO);
-			info.functionInfo->MaxNameLen = FunctionInfo::MAXSYMBOLNAMELENGTH;
-
-			if(SymFromAddr(process, w, &info.displacement64, info.functionInfo))
-			{
-				DWORD64 remap = info.functionInfo->Address;
-
-				addressRemap.insert(w, remap);
-
-				if(FunctionInfo *target = functionMap.find(remap))
-					return target;
-
-				functionMap.insert(remap, info);
-
-				return functionMap.find(remap);
-			}
-
-			return 0;
-		}
-
-		SourceInfo* GetSourceInfo(void* ptr)
-		{
-			DWORD64 w = reinterpret_cast<DWORD64>(ptr);
-
-			if(SourceInfo *info = sourceMap.find(w))
-				return info;
-
-			SourceInfo info;
-			memset(&info.sourceInfo, 0, sizeof(IMAGEHLP_LINE64));
-			info.sourceInfo.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
-
-			if(SymGetLineFromAddr64(process, w, &info.displacement, &info.sourceInfo))
-			{
-				sourceMap.insert(w, info);
-			}
-
-			return sourceMap.find(w);
-		}
-
-		HANDLE process;
-
-		hashmap<DWORD64, DWORD64, d64Hash, d64Compare, 32 * 1024> addressRemap;
-		hashmap<DWORD64, FunctionInfo, d64Hash, d64Compare, 32 * 1024> functionMap;
-		hashmap<DWORD64, SourceInfo, d64Hash, d64Compare, 32 * 1024> sourceMap;
-	};
-
-	struct StackElement;
-
-	std::vector<StackElement*> stackElements;
-
-	struct StackElement
-	{
-		StackElement()
-		{
-			pos = ~0u;
-
-			fInfo = 0;
-
-			objectCount = 0;
-			objectSize = 0;
-
-			allocCount = 0;
-			deallocCount = 0;
-
-			allocSum = 0;
-		}
-
-		unsigned pos; // Position in the global array
-
-		FunctionInfo *fInfo;
-
-		unsigned objectCount; // How many objects are alive at this path segment
-		unsigned objectSize; // How much memory is alive at this path segment
-
-		// How many operations were performed at this path segment (note that an object is deallocated from the same path it was allocated
-		unsigned allocCount;
-		unsigned deallocCount;
-
-		// How much memory in total was allocated at this path segment
-		unsigned long long allocSum;
-
-		std::vector<StackElement*> children;
-
-		const char* GetName()
-		{
-			if(fInfo)
-				return fInfo->functionInfo->Name;
-
-			return "`unknown`";
-		}
-
-		void InsertBlockToTree(void** addresses, unsigned count, unsigned size, bool isAllocation)
-		{
-			if(isAllocation)
-			{
-				objectCount++;
-				objectSize += size;
-
-				allocCount++;
-				allocSum += size;
-			}
-			else
-			{
-				objectCount--;
-				objectSize -= size;
-
-				deallocCount++;
-			}
-
-			if(count)
-			{
-				FunctionInfo *fInfo = SymbolInfo::instance().GetFunctionInfo(addresses[count - 1]);
-
-				bool found = false;
-
-				for(unsigned i = 0; i < children.size(); i++)
-				{
-					if(children[i]->fInfo == fInfo)
-					{
-						children[i]->InsertBlockToTree(addresses, count - 1, size, isAllocation);
-						found = true;
-						break;
-					}
-				}
-
-				if(!found)
-				{
-					StackElement *element = new StackElement();
-
-					element->pos = stackElements.size();
-					stackElements.push_back(element);
-
-					element->fInfo = fInfo;
-					element->InsertBlockToTree(addresses, count - 1, size, isAllocation);
-
-					children.push_back(element);
-				}
-			}
-		}
-
-		void SortChildren(bool (*SortFunc)(const StackElement* lhs, const StackElement* rhs))
-		{
-			std::sort(children.begin(), children.end(), SortFunc);
-
-			for(unsigned i = 0; i < children.size(); i++)
-				children[i]->SortChildren(SortFunc);
-		}
-
-		friend bool SortObjectCount(const StackElement* lhs, const StackElement* rhs)
-		{
-			return lhs->objectCount > rhs->objectCount;
-		}
-
-		friend bool SortObjectSize(const StackElement* lhs, const StackElement* rhs)
-		{
-			return lhs->objectSize > rhs->objectSize;
-		}
-
-		friend bool SortAllocCount(const StackElement* lhs, const StackElement* rhs)
-		{
-			return lhs->allocCount > rhs->allocCount;
-		}
-
-		friend bool SortAllocSize(const StackElement* lhs, const StackElement* rhs)
-		{
-			return lhs->allocSum > rhs->allocSum;
-		}
-
-		friend bool SortDeallocCount(const StackElement* lhs, const StackElement* rhs)
-		{
-			return lhs->deallocCount > rhs->deallocCount;
-		}
-	};
-
-	struct MemoryStats
-	{
-		MemoryStats()
-		{
-			allocCount = 0;
-			blocksCount = 0;
-			bytesCount = 0;
-			freeCount = 0;
-			lastBlockNum = 0;
-			memopsCount = 0;
-		}
-
-		unsigned allocCount;
-		unsigned blocksCount;
-		unsigned bytesCount;
-		unsigned freeCount;
-		unsigned lastBlockNum;
-		unsigned memopsCount;
-	};
-
-	struct StackInfo
-	{
-		StackInfo()
-		{
-			stackSize = 0;
-			stackInfo = 0;
-		}
-
-		unsigned stackSize;
-		void** stackInfo;
-	};
-
-	struct MemoryBlock
-	{
-		size_t blockNum;
-		size_t blockSize;
-		void* blockStart;
-		StackInfo stackInfo;
-		void* blockInfoStart;
-	};
-
-	LRESULT CALLBACK WndProc(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam);
-
-	struct MemoryMan
-	{
-		MemoryMan()
+		memory_dashboard()
 		{
 			InitializeCriticalSectionAndSpinCount(&cs, 1024);
 
 			heap = HeapCreate(0, 8 * 1024 * 1024, 0);
 
-			root = new StackElement();
+			root = stackElementPool.allocate();
 			
 			root->pos = stackElements.size();
 			stackElements.push_back(root);
@@ -373,7 +72,7 @@ namespace muitv
 			memset(&wcex, 0, sizeof(WNDCLASSEX));
 
 			wcex.cbSize = sizeof(WNDCLASSEX); 
-			wcex.lpfnWndProc	= (WNDPROC)WndProc;
+			wcex.lpfnWndProc	= (WNDPROC)detail::window_proc;
 			wcex.hInstance		= instance;
 			wcex.hCursor		= LoadCursor(0, IDC_ARROW);
 			wcex.hbrBackground	= (HBRUSH)(COLOR_WINDOW);
@@ -411,16 +110,16 @@ namespace muitv
 			SetTimer(window, 10001, 200, 0);
 		}
 
-		~MemoryMan()
+		~memory_dashboard()
 		{
 			HeapDestroy(heap);
 
 			DeleteCriticalSection(&cs);
 		}
 
-		static MemoryMan& instance()
+		static memory_dashboard& instance()
 		{
-			static MemoryMan inst;
+			static memory_dashboard inst;
 
 			return inst;
 		}
@@ -433,16 +132,16 @@ namespace muitv
 			void* stackBuf[maxStackTraceDepth];
 			size_t stackSize = RtlCaptureStackBackTrace(0, maxStackTraceDepth, stackBuf, 0);
 
-			char* ptr = (char*)HeapAlloc(heap, HEAP_ZERO_MEMORY, size + (sizeof(void*) * stackSize) + sizeof(MemoryBlock));
+			char* ptr = (char*)HeapAlloc(heap, HEAP_ZERO_MEMORY, size + (sizeof(void*) * stackSize) + sizeof(memory_block));
 
 			if(!ptr)
 				return 0;
 
-			MemoryBlock* block = (MemoryBlock*)(ptr + (sizeof(void*) * stackSize));
+			memory_block* block = (memory_block*)(ptr + (sizeof(void*) * stackSize));
 
 			block->blockNum = stats.lastBlockNum++;
 			block->blockSize = size;
-			block->blockStart = ptr + sizeof(MemoryBlock) + (sizeof(void*) * stackSize);
+			block->blockStart = ptr + sizeof(memory_block) + (sizeof(void*) * stackSize);
 			block->blockInfoStart = ptr;
 
 			block->stackInfo.stackSize = stackSize;
@@ -456,11 +155,11 @@ namespace muitv
 			stats.allocCount++;
 
 			if(block->stackInfo.stackSize > skipBegin + skipEnd)
-				root->InsertBlockToTree(block->stackInfo.stackInfo + skipBegin, block->stackInfo.stackSize - (skipBegin + skipEnd), block->blockSize, true);
+				insert_block_to_tree(root, block->stackInfo.stackInfo + skipBegin, block->stackInfo.stackSize - (skipBegin + skipEnd), block->blockSize, true);
 
 			LeaveCriticalSection(&cs);
 
-			ptr += sizeof(MemoryBlock) + (sizeof(void*) * stackSize);
+			ptr += sizeof(memory_block) + (sizeof(void*) * stackSize);
 
 			return ptr;
 		}
@@ -474,9 +173,9 @@ namespace muitv
 
 			char* cPtr = (char*)(ptr);
 
-			cPtr -= sizeof(MemoryBlock);
+			cPtr -= sizeof(memory_block);
 
-			MemoryBlock* block = (MemoryBlock*)cPtr;
+			memory_block* block = (memory_block*)cPtr;
 
 			int size = block->blockSize;
 
@@ -486,14 +185,63 @@ namespace muitv
 			stats.freeCount++;
 
 			if(block->stackInfo.stackSize > skipBegin + skipEnd)
-				root->InsertBlockToTree(block->stackInfo.stackInfo + skipBegin, block->stackInfo.stackSize - (skipBegin + skipEnd), block->blockSize, false);
+				insert_block_to_tree(root, block->stackInfo.stackInfo + skipBegin, block->stackInfo.stackSize - (skipBegin + skipEnd), block->blockSize, false);
 
 			HeapFree(heap, 0, block->blockInfoStart);
 
 			LeaveCriticalSection(&cs);
 		}
+
+		void insert_block_to_tree(stack_element *node, void** addresses, unsigned count, unsigned size, bool isAllocation)
+		{
+			if(isAllocation)
+			{
+				node->objectCount++;
+				node->objectSize += size;
+
+				node->allocCount++;
+				node->allocSize += size;
+			}
+			else
+			{
+				node->objectCount--;
+				node->objectSize -= size;
+
+				node->freeCount++;
+			}
+
+			if(count)
+			{
+				function_info *fInfo = symbol_info::instance().get_function_info(addresses[count - 1]);
+
+				bool found = false;
+
+				for(unsigned i = 0; i < node->children.size(); i++)
+				{
+					if(node->children[i]->fInfo == fInfo)
+					{
+						insert_block_to_tree(node->children[i], addresses, count - 1, size, isAllocation);
+						found = true;
+						break;
+					}
+				}
+
+				if(!found)
+				{
+					stack_element *element = stackElementPool.allocate();
+
+					element->pos = stackElements.size();
+					stackElements.push_back(element);
+
+					element->fInfo = fInfo;
+					insert_block_to_tree(element, addresses, count - 1, size, isAllocation);
+
+					node->children.push_back(element);
+				}
+			}
+		}
 		
-		void UpdateTree(HTREEITEM parent)
+		void update_tree_display(HTREEITEM parent)
 		{
 			if(!parent)
 				return;
@@ -509,10 +257,10 @@ namespace muitv
 			if(stackElements.empty())
 				return;
 
-			StackElement *node = stackElements[item.lParam];
+			stack_element *node = stackElements[item.lParam];
 
 			item.mask = TVIF_TEXT;
-			item.pszText = FormattedString("%s (x%d for %dkb)", node->GetName(), node->allocCount, node->allocSum / 1024);
+			item.pszText = detail::formatted_string("%s (x%d for %dkb)", node->get_name(), node->objectCount, node->objectSize / 1024);
 
 			TreeView_SetItem(tree, &item);
 
@@ -520,13 +268,13 @@ namespace muitv
 
 			while(child)
 			{
-				UpdateTree(child);
+				update_tree_display(child);
 
 				child = TreeView_GetNextSibling(tree, child);
 			}
 		}
 
-		LRESULT Proc(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam)
+		LRESULT window_message_handle(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam)
 		{
 			switch(message)
 			{
@@ -558,13 +306,13 @@ namespace muitv
 
 					if(size_t(info->itemNew.lParam) < stackElements.size())
 					{
-						StackElement *parent = stackElements[info->itemNew.lParam];
+						stack_element *parent = stackElements[info->itemNew.lParam];
 
-						parent->SortChildren(SortAllocSize);
+						parent->sort_children(compare_object_size);
 
 						for(unsigned i = 0; i < parent->children.size(); i++)
 						{
-							StackElement *elem = parent->children[i];
+							stack_element *elem = parent->children[i];
 
 							TVINSERTSTRUCT helpInsert;
 
@@ -572,7 +320,7 @@ namespace muitv
 							helpInsert.hInsertAfter = TVI_LAST;
 							helpInsert.item.cchTextMax = 0;
 							helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
-							helpInsert.item.pszText = FormattedString("%s (x%d for %dkb)", elem->GetName(), elem->allocCount, elem->allocSum / 1024);
+							helpInsert.item.pszText = detail::formatted_string("%s (x%d for %dkb)", elem->get_name(), elem->objectCount, elem->objectSize / 1024);
 							helpInsert.item.cChildren = I_CHILDRENCALLBACK;
 							helpInsert.item.lParam = elem->pos;
 							
@@ -590,14 +338,14 @@ namespace muitv
 
 					item.mask = TVIF_TEXT;
 					item.cchTextMax = 0;
-					item.pszText = FormattedString("Root (x%d for %dkb)", stats.blocksCount, stats.bytesCount / 1024);
+					item.pszText = detail::formatted_string("Root (x%d for %dkb)", stats.blocksCount, stats.bytesCount / 1024);
 					item.hItem = TreeView_GetRoot(tree);
 
 					TreeView_SetItem(tree, &item);
 
 					EnterCriticalSection(&cs);
 
-					UpdateTree(TreeView_GetChild(tree, item.hItem));
+					update_tree_display(TreeView_GetChild(tree, item.hItem));
 
 					LeaveCriticalSection(&cs);
 
@@ -616,9 +364,13 @@ namespace muitv
 
 		HANDLE heap;
 
-		MemoryStats stats;
+		memory_stats stats;
 
-		StackElement *root;
+		stack_element *root;
+
+		block_pool<stack_element, 1024> stackElementPool;
+
+		std::vector<stack_element*> stackElements;
 
 		// Display
 		HWND window;
@@ -626,20 +378,20 @@ namespace muitv
 		HWND tree;
 	};
 
-	LRESULT CALLBACK WndProc(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam)
+	LRESULT CALLBACK detail::window_proc(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam)
 	{
-		MemoryMan *memoryMan = (MemoryMan*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+		memory_dashboard *memoryMan = (memory_dashboard*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 
-		return memoryMan->Proc(hWnd, message, wParam, lParam);
+		return memoryMan->window_message_handle(hWnd, message, wParam, lParam);
 	}
 }
 
 extern "C" __declspec(dllexport) void* muitv_alloc(size_t size)
 {
-	return muitv::MemoryMan::instance().malloc(size);
+	return muitv::memory_dashboard::instance().malloc(size);
 }
 
 extern "C" __declspec(dllexport) void muitv_free(void* ptr)
 {
-	muitv::MemoryMan::instance().free(ptr);
+	muitv::memory_dashboard::instance().free(ptr);
 }

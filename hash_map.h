@@ -2,47 +2,49 @@
 
 #include <assert.h>
 
-#include "blockpool.h"
+#include "block_pool.h"
 
 namespace muitv
 {
-	template<typename Key, typename Value, unsigned (*HashFunction)(const Key&), bool (*CompareFunction)(const Key&, const Key&), unsigned buckets>
-	class hashmap
+	template<typename key, typename value, unsigned (*HashFunction)(const key&), bool (*CompareFunction)(const key&, const key&), unsigned buckets>
+	class hash_map
 	{
 		static const unsigned bucketCount = buckets;
 		static const unsigned bucketMask = bucketCount - 1;
 
 	public:
-		struct Node
+		struct node
 		{
-			Key key;
+			key key;
 			unsigned hash;
-			Value value;
-			Node *next;
+			value value;
+			node *next;
 		};
 
-		hashmap()
+		hash_map()
 		{
-			entries = new Node*[bucketCount];
-			memset(entries, 0, sizeof(Node*) * bucketCount);
+			entries = new node*[bucketCount];
+			memset(entries, 0, sizeof(node*) * bucketCount);
 			count = 0;
 		}
 
-		~hashmap()
+		~hash_map()
 		{
 			delete[] entries;
 		}
 
-		Value* insert(const Key& key, Value value)
+		value* insert(const key& key, value value)
 		{
 			unsigned hash = HashFunction(key);
 			unsigned bucket = hash & bucketMask;
 
-			Node *n = nodePool.Allocate();
+			node *n = nodePool.allocate();
+
 			n->key = key;
 			n->value = value;
 			n->hash = hash;
 			n->next = entries[bucket];
+
 			entries[bucket] = n;
 
 			count++;
@@ -50,12 +52,12 @@ namespace muitv
 			return &n->value;
 		}
 
-		void remove(const Key& key)
+		void remove(const key& key)
 		{
 			unsigned hash = HashFunction(key);
 			unsigned bucket = hash & bucketMask;
 
-			Node *curr = entries[bucket], *prev = 0;
+			node *curr = entries[bucket], *prev = 0;
 
 			while(curr)
 			{
@@ -77,37 +79,44 @@ namespace muitv
 			count--;
 		}
 
-		Value* find(const Key& key)
+		value* find(const key& key)
 		{
-			Node *n = first(key);
+			node *n = first(key);
+
 			return n ? &n->value : 0;
 		}
 
-		Node* first(const Key& key)
+		node* first(const key& key)
 		{
 			unsigned hash = HashFunction(key);
 			unsigned bucket = hash & bucketMask;
-			Node *curr = entries[bucket];
+
+			node *curr = entries[bucket];
+
 			while(curr)
 			{
 				if(curr->hash == hash && CompareFunction(curr->key, key))
 					return curr;
 				curr = curr->next;
 			}
+
 			return 0;
 		}
 
-		Node* next(Node* curr)
+		node* next(node* curr)
 		{
 			unsigned hash = curr->hash;
 			const Key &key = curr->key;
+
 			curr = curr->next;
+
 			while(curr)
 			{
 				if(curr->hash == hash && CompareFunction(curr->key, key))
 					return curr;
 				curr = curr->next;
 			}
+
 			return 0;
 		}
 
@@ -115,10 +124,11 @@ namespace muitv
 		{
 			return count;
 		}
+
 	private:
-		Node **entries;
+		node **entries;
 		unsigned count;
 
-		blockpool<Node, buckets> nodePool;
+		block_pool<node, buckets> nodePool;
 	};
 }

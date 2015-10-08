@@ -5,33 +5,33 @@
 namespace muitv
 {
 	template<typename T, unsigned countInBlock>
-	class blockpool
+	class block_pool
 	{
-		union SmallBlock
+		union small_block
 		{
 			char data[sizeof(T)];
-			SmallBlock *next;
+			small_block *next;
 		};
 
-		struct LargeBlock
+		struct large_block
 		{
-			SmallBlock page[countInBlock];
-			LargeBlock *next;
+			small_block page[countInBlock];
+			large_block *next;
 		};
 
 	public:
-		blockpool()
+		block_pool()
 		{
 			freeBlocks = 0;
 			activePages = 0;
 			lastNum = countInBlock;
 		}
 
-		~blockpool()
+		~block_pool()
 		{
 			while(activePages)
 			{
-				LargeBlock *following = activePages->next;
+				large_block *following = activePages->next;
 
 				delete activePages;
 
@@ -39,9 +39,9 @@ namespace muitv
 			}
 		}
 
-		T* Allocate()
+		T* allocate()
 		{
-			SmallBlock *result = 0;
+			small_block *result = 0;
 
 			if(freeBlocks)
 			{
@@ -52,7 +52,7 @@ namespace muitv
 			{
 				if(lastNum == countInBlock)
 				{
-					LargeBlock *newPage = new LargeBlock();
+					large_block *newPage = new large_block();
 
 					newPage->next = activePages;
 					activePages = newPage;
@@ -66,12 +66,12 @@ namespace muitv
 			return new (result) T;
 		}
 
-		void Deallocate(T* ptr)
+		void free(T* ptr)
 		{
 			if(!ptr)
 				return;
 
-			SmallBlock *freedBlock = (SmallBlock*)(void*)ptr;
+			small_block *freedBlock = (small_block*)(void*)ptr;
 
 			ptr->~T();
 
@@ -80,8 +80,8 @@ namespace muitv
 		}
 
 	private:
-		SmallBlock *freeBlocks;
-		LargeBlock *activePages;
+		small_block *freeBlocks;
+		large_block *activePages;
 		unsigned lastNum;
 	};
 }
