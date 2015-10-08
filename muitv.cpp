@@ -110,7 +110,16 @@ namespace muitv
 
 			TreeView_InsertItem(tree, &helpInsert);
 
+			labelAllocCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 0, 5, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+			labelFreeCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 1, 5, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+			labelOperationCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 2, 5, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+
+			labelBlockCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 0, 30, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+			labelByteCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 1, 30, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+
 			SetTimer(window, 10001, 200, 0);
+
+			UpdateWindow(window);
 		}
 
 		~memory_dashboard()
@@ -243,7 +252,7 @@ namespace muitv
 				}
 			}
 		}
-		
+
 		void update_tree_display(HTREEITEM parent)
 		{
 			if(!parent)
@@ -339,6 +348,13 @@ namespace muitv
 				{
 					EnterCriticalSection(&cs);
 
+					Static_SetText(labelAllocCount, detail::formatted_string("Alloc: %d", stats.allocCount));
+					Static_SetText(labelFreeCount, detail::formatted_string("Free: %d", stats.freeCount));
+					Static_SetText(labelOperationCount, detail::formatted_string("Total: %d", stats.memopsCount));
+
+					Static_SetText(labelBlockCount, detail::formatted_string("Blocks: %d", stats.blocksCount));
+					Static_SetText(labelByteCount, detail::formatted_string("Size: %.3fmb", stats.bytesCount / 1024.0 / 1024.0));
+
 					TVITEM item;
 
 					item.mask = TVIF_TEXT;
@@ -359,6 +375,13 @@ namespace muitv
 				{
 					unsigned width = LOWORD(lParam);
 					unsigned height = HIWORD(lParam);
+
+					SetWindowPos(labelAllocCount, HWND_TOP, 5 + (width - 10) / 3 * 0, 5, (width - 10) / 3 - 5, 20, 0);
+					SetWindowPos(labelFreeCount, HWND_TOP, 5 + (width - 10) / 3 * 1, 5, (width - 10) / 3 - 5, 20, 0);
+					SetWindowPos(labelOperationCount, HWND_TOP, 5 + (width - 10) / 3 * 2, 5, (width - 10) / 3 - 5, 20, 0);
+
+					SetWindowPos(labelBlockCount, HWND_TOP, 5 + (width - 10) / 3 * 0, 30, (width - 10) / 3 - 5, 20, 0);
+					SetWindowPos(labelByteCount, HWND_TOP, 5 + (width - 10) / 3 * 1, 30, (width - 10) / 3 - 5, 20, 0);
 
 					SetWindowPos(tree, HWND_TOP, 5, 55, width - 10, height - 60, 0);
 				}
@@ -385,6 +408,13 @@ namespace muitv
 
 		// Display
 		HWND window;
+
+		HWND labelAllocCount;
+		HWND labelFreeCount;
+		HWND labelOperationCount;
+
+		HWND labelBlockCount;
+		HWND labelByteCount;
 
 		HWND tree;
 	};
