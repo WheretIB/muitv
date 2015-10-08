@@ -80,10 +80,13 @@ namespace muitv
 
 			RegisterClassEx(&wcex);
 
-			RECT windowRect = { 100, 100, 500, 500 };
+			RECT windowRect = { 0, 0, 500, 500 };
 			AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, false);
 
-			window = CreateWindow("MUITV_DASHBOARD", "muitv - Dashboard", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, 0, 0, instance, this);
+			unsigned width = windowRect.right - windowRect.left;
+			unsigned height = windowRect.bottom - windowRect.top;
+
+			window = CreateWindow("MUITV_DASHBOARD", "muitv - Dashboard", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, instance, this);
 
 			SetWindowLongPtr(window, GWLP_USERDATA, (uintptr_t)this);
 
@@ -92,7 +95,7 @@ namespace muitv
 			commControlTypes.dwICC = ICC_TREEVIEW_CLASSES;
 			InitCommonControlsEx(&commControlTypes);
 
-			tree = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | WS_VISIBLE | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS, 5, 50, 490, 445, window, 0, instance, 0);
+			tree = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | WS_VISIBLE | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS, 5, 55, width - 10, height - 60, window, 0, instance, 0);
 
 			TreeView_SetExtendedStyle(tree, TVS_EX_DOUBLEBUFFER, TVS_EX_DOUBLEBUFFER);
 
@@ -334,6 +337,8 @@ namespace muitv
 			case WM_TIMER:
 				if(wParam == 10001)
 				{
+					EnterCriticalSection(&cs);
+
 					TVITEM item;
 
 					item.mask = TVIF_TEXT;
@@ -343,13 +348,19 @@ namespace muitv
 
 					TreeView_SetItem(tree, &item);
 
-					EnterCriticalSection(&cs);
-
 					update_tree_display(TreeView_GetChild(tree, item.hItem));
 
 					LeaveCriticalSection(&cs);
 
 					return 0;
+				}
+				break;
+			case WM_SIZE:
+				{
+					unsigned width = LOWORD(lParam);
+					unsigned height = HIWORD(lParam);
+
+					SetWindowPos(tree, HWND_TOP, 5, 55, width - 10, height - 60, 0);
 				}
 				break;
 			}
@@ -382,7 +393,10 @@ namespace muitv
 	{
 		memory_dashboard *memoryMan = (memory_dashboard*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 
-		return memoryMan->window_message_handle(hWnd, message, wParam, lParam);
+		if(memoryMan)
+			return memoryMan->window_message_handle(hWnd, message, wParam, lParam);
+
+		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 }
 
