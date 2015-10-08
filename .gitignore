@@ -26,3 +26,15 @@
 *.exe
 *.out
 *.app
+
+# Visual Studio temporary files
+*.suo
+*.exp
+*.ilk
+*.pdb
+*.opensdf
+*.sdf
+*.user
+/vs/Debug
+/vs/Release
+/vs/ipch
