@@ -51,6 +51,15 @@ namespace muitv
 		}
 
 		LRESULT CALLBACK window_proc(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam);
+
+		enum display_info
+		{
+			display_size,
+			display_objects,
+			display_alloc,
+			display_free,
+			display_alltime,
+		};
 	}
 
 	struct memory_dashboard
@@ -95,7 +104,7 @@ namespace muitv
 			commControlTypes.dwICC = ICC_TREEVIEW_CLASSES;
 			InitCommonControlsEx(&commControlTypes);
 
-			tree = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | WS_VISIBLE | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS, 5, 55, width - 10, height - 60, window, 0, instance, 0);
+			tree = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | WS_VISIBLE | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS, 5, 105, width - 15, height - 115, window, 0, instance, 0);
 
 			TreeView_SetExtendedStyle(tree, TVS_EX_DOUBLEBUFFER, TVS_EX_DOUBLEBUFFER);
 
@@ -116,6 +125,17 @@ namespace muitv
 
 			labelBlockCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 0, 30, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
 			labelByteCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 1, 30, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+
+			// Sorting style
+			labelSorting = CreateWindow("STATIC", "Sorting:", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 0, 55, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+
+			sortingSize = CreateWindowA("BUTTON", "Size", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON | WS_GROUP, 5 + (width - 10) / 5 * 0, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
+			sortingObjects = CreateWindowA("BUTTON", "Objects", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON, 5 + (width - 10) / 5 * 1, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
+			sortingAlloc = CreateWindowA("BUTTON", "Alloc", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON, 5 + (width - 10) / 5 * 2, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
+			sortingFree = CreateWindowA("BUTTON", "Free", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON, 5 + (width - 10) / 5 * 3, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
+			sortingTotalAllocated = CreateWindowA("BUTTON", "All-time", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON, 5 + (width - 10) / 5 * 4, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
+
+			Button_SetCheck(sortingSize, 1);
 
 			SetTimer(window, 10001, 200, 0);
 
@@ -253,7 +273,55 @@ namespace muitv
 			}
 		}
 
-		void update_tree_display(HTREEITEM parent)
+		detail::display_info get_display_mode()
+		{
+			if(!!Button_GetCheck(sortingObjects))
+				return detail::display_objects;
+
+			if(!!Button_GetCheck(sortingAlloc))
+				return detail::display_alloc;
+
+			if(!!Button_GetCheck(sortingFree))
+				return detail::display_free;
+
+			if(!!Button_GetCheck(sortingTotalAllocated))
+				return detail::display_alltime;
+
+			return detail::display_size;
+		}
+
+		char* get_display_info(stack_element *node, detail::display_info mode)
+		{
+			if(mode == detail::display_alloc)
+				return detail::formatted_string("%s (%d)", node->get_name(), node->allocCount);
+
+			if(mode == detail::display_free)
+				return detail::formatted_string("%s (%d)", node->get_name(), node->freeCount);
+
+			if(mode == detail::display_alltime)
+				return detail::formatted_string("%s (x%d %lldkb)", node->get_name(), node->allocCount, node->allocSize / 1024);
+
+			return detail::formatted_string("%s (x%d for %dkb)", node->get_name(), node->objectCount, node->objectSize / 1024);
+		}
+
+		stack_element::sort_func get_display_sort(detail::display_info mode)
+		{
+			if(mode == detail::display_objects)
+				return compare_object_count;
+
+			if(mode == detail::display_alloc)
+				return compare_alloc_count;
+
+			if(mode == detail::display_free)
+				return compare_free_count;
+
+			if(mode == detail::display_alltime)
+				return compare_alloc_size;
+
+			return compare_object_size;
+		}
+
+		void update_tree_display(HTREEITEM parent, detail::display_info mode)
 		{
 			if(!parent)
 				return;
@@ -272,7 +340,7 @@ namespace muitv
 			stack_element *node = stackElements[item.lParam];
 
 			item.mask = TVIF_TEXT;
-			item.pszText = detail::formatted_string("%s (x%d for %dkb)", node->get_name(), node->objectCount, node->objectSize / 1024);
+			item.pszText = get_display_info(node, mode);
 
 			TreeView_SetItem(tree, &item);
 
@@ -280,7 +348,7 @@ namespace muitv
 
 			while(child)
 			{
-				update_tree_display(child);
+				update_tree_display(child, mode);
 
 				child = TreeView_GetNextSibling(tree, child);
 			}
@@ -314,13 +382,15 @@ namespace muitv
 					while(HTREEITEM child = TreeView_GetChild(tree, info->itemNew.hItem))
 						TreeView_DeleteItem(tree, child);
 
+					detail::display_info mode = get_display_mode();
+
 					EnterCriticalSection(&cs);
 
 					if(size_t(info->itemNew.lParam) < stackElements.size())
 					{
 						stack_element *parent = stackElements[info->itemNew.lParam];
 
-						parent->sort_children(compare_object_size);
+						parent->sort_children(get_display_sort(mode));
 
 						for(unsigned i = 0; i < parent->children.size(); i++)
 						{
@@ -332,7 +402,7 @@ namespace muitv
 							helpInsert.hInsertAfter = TVI_LAST;
 							helpInsert.item.cchTextMax = 0;
 							helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
-							helpInsert.item.pszText = detail::formatted_string("%s (x%d for %dkb)", elem->get_name(), elem->objectCount, elem->objectSize / 1024);
+							helpInsert.item.pszText = get_display_info(elem, mode);
 							helpInsert.item.cChildren = I_CHILDRENCALLBACK;
 							helpInsert.item.lParam = elem->pos;
 							
@@ -359,12 +429,12 @@ namespace muitv
 
 					item.mask = TVIF_TEXT;
 					item.cchTextMax = 0;
-					item.pszText = detail::formatted_string("Root (x%d for %dkb)", stats.blocksCount, stats.bytesCount / 1024);
+					item.pszText = get_display_info(root, get_display_mode());
 					item.hItem = TreeView_GetRoot(tree);
 
 					TreeView_SetItem(tree, &item);
 
-					update_tree_display(TreeView_GetChild(tree, item.hItem));
+					update_tree_display(TreeView_GetChild(tree, item.hItem), get_display_mode());
 
 					LeaveCriticalSection(&cs);
 
@@ -383,7 +453,15 @@ namespace muitv
 					SetWindowPos(labelBlockCount, HWND_TOP, 5 + (width - 10) / 3 * 0, 30, (width - 10) / 3 - 5, 20, 0);
 					SetWindowPos(labelByteCount, HWND_TOP, 5 + (width - 10) / 3 * 1, 30, (width - 10) / 3 - 5, 20, 0);
 
-					SetWindowPos(tree, HWND_TOP, 5, 55, width - 10, height - 60, 0);
+					SetWindowPos(labelSorting, HWND_TOP, 5 + (width - 10) / 3 * 0, 55, (width - 10) / 3 - 5, 20, 0);
+
+					SetWindowPos(sortingSize, HWND_TOP, 5 + (width - 10) / 5 * 0, 80, (width - 10) / 5 - 5, 20, 0);
+					SetWindowPos(sortingObjects, HWND_TOP, 5 + (width - 10) / 5 * 1, 80, (width - 10) / 5 - 5, 20, 0);
+					SetWindowPos(sortingAlloc, HWND_TOP, 5 + (width - 10) / 5 * 2, 80, (width - 10) / 5 - 5, 20, 0);
+					SetWindowPos(sortingFree, HWND_TOP, 5 + (width - 10) / 5 * 3, 80, (width - 10) / 5 - 5, 20, 0);
+					SetWindowPos(sortingTotalAllocated, HWND_TOP, 5 + (width - 10) / 5 * 4, 80, (width - 10) / 5 - 5, 20, 0);
+
+					SetWindowPos(tree, HWND_TOP, 5, 105, width - 10, height - 110, 0);
 				}
 				break;
 			}
@@ -415,6 +493,14 @@ namespace muitv
 
 		HWND labelBlockCount;
 		HWND labelByteCount;
+
+		HWND labelSorting;
+
+		HWND sortingSize;
+		HWND sortingObjects;
+		HWND sortingAlloc;
+		HWND sortingFree;
+		HWND sortingTotalAllocated;
 
 		HWND tree;
 	};

@@ -50,12 +50,14 @@ namespace muitv
 			return "`unknown`";
 		}
 
-		void sort_children(bool (*SortFunc)(const stack_element* lhs, const stack_element* rhs))
+		typedef bool (*sort_func)(const stack_element* lhs, const stack_element* rhs);
+
+		void sort_children(sort_func sortFunction)
 		{
-			std::sort(children.begin(), children.end(), SortFunc);
+			std::sort(children.begin(), children.end(), sortFunction);
 
 			for(unsigned i = 0; i < children.size(); i++)
-				children[i]->sort_children(SortFunc);
+				children[i]->sort_children(sortFunction);
 		}
 
 		friend bool compare_object_count(const stack_element* lhs, const stack_element* rhs)
