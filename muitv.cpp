@@ -27,8 +27,6 @@ extern "C"
 // remove C++11
 // lowercase classes
 // unsigned -> size_t
-// remove NULL
-// remove nullptr
 // less winapi
 
 namespace muitv
@@ -112,7 +110,7 @@ namespace muitv
 
 			SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
 	
-			SymInitialize(process, NULL, true);
+			SymInitialize(process, 0, true);
 		}
 
 		~SymbolInfo()
@@ -156,7 +154,7 @@ namespace muitv
 				return functionMap.find(remap);
 			}
 
-			return nullptr;
+			return 0;
 		}
 
 		SourceInfo* GetSourceInfo(void* ptr)
@@ -377,7 +375,7 @@ namespace muitv
 			wcex.cbSize = sizeof(WNDCLASSEX); 
 			wcex.lpfnWndProc	= (WNDPROC)WndProc;
 			wcex.hInstance		= instance;
-			wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
+			wcex.hCursor		= LoadCursor(0, IDC_ARROW);
 			wcex.hbrBackground	= (HBRUSH)(COLOR_WINDOW);
 			wcex.lpszClassName	= "MUITV_DASHBOARD";
 
@@ -395,7 +393,7 @@ namespace muitv
 			commControlTypes.dwICC = ICC_TREEVIEW_CLASSES;
 			InitCommonControlsEx(&commControlTypes);
 
-			tree = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | WS_VISIBLE | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS, 5, 50, 490, 445, window, NULL, instance, NULL);
+			tree = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | WS_VISIBLE | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS, 5, 50, 490, 445, window, 0, instance, 0);
 
 			TreeView_SetExtendedStyle(tree, TVS_EX_DOUBLEBUFFER, TVS_EX_DOUBLEBUFFER);
 
@@ -410,7 +408,7 @@ namespace muitv
 
 			TreeView_InsertItem(tree, &helpInsert);
 
-			SetTimer(window, 10001, 200, NULL);
+			SetTimer(window, 10001, 200, 0);
 		}
 
 		~MemoryMan()

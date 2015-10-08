@@ -1,5 +1,7 @@
 #pragma once
 
+#include <assert.h>
+
 #include "blockpool.h"
 
 namespace muitv
@@ -28,32 +30,7 @@ namespace muitv
 
 		~hashmap()
 		{
-			if(entries)
-			{
-				clear();
-
-				delete[] entries;
-			}
-
-			entries = 0;
-			count = 0;
-		}
-
-		void clear()
-		{
-			for(unsigned i = 0; i < bucketCount; i++)
-			{
-				while(entries[i])
-				{
-					auto next = entries[i]->next;
-
-					nodePool.Deallocate(entries[i]);
-
-					entries[i] = next;
-				}
-			}
-
-			count = 0;
+			delete[] entries;
 		}
 
 		Value* insert(const Key& key, Value value)
