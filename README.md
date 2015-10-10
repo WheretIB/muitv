@@ -1,6 +1,6 @@
 # muitv [![Build status](https://ci.appveyor.com/api/projects/status/9m9ar7h2y56ri098?svg=true)](https://ci.appveyor.com/project/WheretIB/muitv)
 
-This project provides a dynamically loaded library with a memory allocator that will create and display a tree view of all allocation call stacks in your windowed win32 application.
+This project provides a dynamically loaded library with a low-overhead memory allocator that will create and display a tree view of all allocation call stacks in your win32 application.
 
 ![Dashboard example](http://egoengine.com/trash/fp/img_2015_10_08_23_31_26.png)
 
