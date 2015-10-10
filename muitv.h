@@ -8,7 +8,9 @@ extern "C" __declspec(dllimport) void* muitv_calloc(size_t count, size_t size);
 extern "C" __declspec(dllimport) void* muitv_realloc(void* ptr, size_t size);
 extern "C" __declspec(dllimport) void muitv_free(void* ptr);
 extern "C" __declspec(dllimport) size_t muitv_get_size(void* ptr);
+extern "C" __declspec(dllimport) void muitv_add_call_stack_to_tree(unsigned size);
 
+#if !defined(MUITV_MANUAL_ONLY)
 void* operator new(size_t size)
 {
 	return muitv_alloc(size);
@@ -28,6 +30,7 @@ void operator delete[](void* ptr)
 {
 	muitv_free(ptr);
 }
+#endif
 
 #if defined(OVERRIDE_CLIB_MALLOC)
 extern "C" _declspec(dllimport) int __stdcall VirtualProtect(void* lpAddress, size_t dwSize, unsigned long flNewProtect, unsigned long* lpflOldProtect);

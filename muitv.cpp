@@ -227,6 +227,25 @@ namespace muitv
 			return size;
 		}
 
+		void add_call_stack_to_tree(unsigned size)
+		{
+			EnterCriticalSection(&cs);
+
+			const size_t maxStackTraceDepth = 64;
+			void* stackBuf[maxStackTraceDepth];
+			size_t stackSize = RtlCaptureStackBackTrace(0, maxStackTraceDepth, stackBuf, 0);
+
+			stats.bytesCount += size;
+			stats.blocksCount++;
+			stats.memopsCount++;
+			stats.allocCount++;
+
+			if(stackSize > skipBegin + skipEnd)
+				insert_block_to_tree(root, stackBuf + skipBegin, stackSize - (skipBegin + skipEnd), size, true);
+
+			LeaveCriticalSection(&cs);
+		}
+
 		void insert_block_to_tree(stack_element *node, void** addresses, unsigned count, unsigned size, bool isAllocation)
 		{
 			if(isAllocation)
@@ -620,4 +639,9 @@ extern "C" __declspec(dllexport) void muitv_free(void* ptr)
 extern "C" __declspec(dllexport) size_t muitv_get_size(void* ptr)
 {
 	return muitv::memory_dashboard::instance().get_size(ptr);
+}
+
+extern "C" __declspec(dllexport) void muitv_add_call_stack_to_tree(unsigned size)
+{
+	muitv::memory_dashboard::instance().add_call_stack_to_tree(size);
 }
