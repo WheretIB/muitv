@@ -71,6 +71,10 @@ namespace muitv
 	{
 		memory_dashboard()
 		{
+			detail::free(detail::alloc<int>());
+
+			symbol_info::instance();
+
 			InitializeCriticalSectionAndSpinCount(&cs, 1024);
 
 			heap = HeapCreate(0, 8 * 1024 * 1024, 0);
@@ -79,6 +83,9 @@ namespace muitv
 			
 			root->pos = stackElements.size();
 			stackElements.push_back(root);
+
+			dashboardActive = true;
+			dashboardExit = false;
 
 			CreateThread(NULL, 0, detail::window_thread, this, 0, 0);
 
@@ -99,6 +106,12 @@ namespace muitv
 
 		~memory_dashboard()
 		{
+			// Join dashboard thread
+			dashboardExit = true;
+
+			while(dashboardActive)
+				Sleep(16);
+
 			HeapDestroy(heap);
 
 			DeleteCriticalSection(&cs);
@@ -435,7 +448,7 @@ namespace muitv
 
 			UpdateWindow(window);
 
-			for(;;)
+			while(!dashboardExit)
 			{
 				MSG msg;
 				while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -446,6 +459,8 @@ namespace muitv
 
 				Sleep(16);
 			}
+
+			dashboardActive = false;
 		}
 
 		LRESULT window_message_handle(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam)
@@ -597,6 +612,9 @@ namespace muitv
 		HWND sortingTotalAllocated;
 
 		HWND tree;
+
+		volatile bool dashboardActive;
+		volatile bool dashboardExit;
 	};
 
 	DWORD CALLBACK detail::window_thread(LPVOID lpThreadParameter)

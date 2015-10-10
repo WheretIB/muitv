@@ -63,9 +63,29 @@ namespace muitv
 		patch_with_jump((void*)realloc, (void*)muitv_realloc);
 		patch_with_jump((void*)free, (void*)muitv_free);
 
+		return 1;
+	}
+
+#pragma warning(push)
+#pragma warning(disable: 4073)
+#pragma init_seg(lib)
+	static const unsigned patch_clib_functions_ready = patch_clib_functions();
+#pragma warning(pop)
+}
+#else
+namespace muitv
+{
+	unsigned patch_clib_functions()
+	{
+		muitv_free(0);
+
 		return 0;
 	}
 
+#pragma warning(push)
+#pragma warning(disable: 4073)
+#pragma init_seg(lib)
 	static const unsigned patch_clib_functions_ready = patch_clib_functions();
+#pragma warning(pop)
 }
 #endif
