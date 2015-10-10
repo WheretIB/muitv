@@ -50,6 +50,8 @@ namespace muitv
 			return temp;
 		}
 
+		DWORD CALLBACK window_thread(LPVOID lpThreadParameter);
+
 		LRESULT CALLBACK window_proc(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam);
 
 		enum display_info
@@ -75,6 +77,8 @@ namespace muitv
 			root->pos = stackElements.size();
 			stackElements.push_back(root);
 
+			CreateThread(NULL, 0, detail::window_thread, this, 0, 0);
+
 			HINSTANCE instance = GetModuleHandle(0);
 
 			WNDCLASSEX wcex;
@@ -88,58 +92,6 @@ namespace muitv
 			wcex.lpszClassName	= "MUITV_DASHBOARD";
 
 			RegisterClassEx(&wcex);
-
-			RECT windowRect = { 0, 0, 500, 500 };
-			AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, false);
-
-			unsigned width = windowRect.right - windowRect.left;
-			unsigned height = windowRect.bottom - windowRect.top;
-
-			window = CreateWindow("MUITV_DASHBOARD", "muitv - Dashboard", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, instance, this);
-
-			SetWindowLongPtr(window, GWLP_USERDATA, (uintptr_t)this);
-
-			INITCOMMONCONTROLSEX commControlTypes;
-			commControlTypes.dwSize = sizeof(INITCOMMONCONTROLSEX);
-			commControlTypes.dwICC = ICC_TREEVIEW_CLASSES;
-			InitCommonControlsEx(&commControlTypes);
-
-			tree = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | WS_VISIBLE | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS, 5, 105, width - 15, height - 115, window, 0, instance, 0);
-
-			TreeView_SetExtendedStyle(tree, TVS_EX_DOUBLEBUFFER, TVS_EX_DOUBLEBUFFER);
-
-			TVINSERTSTRUCT helpInsert;
-
-			helpInsert.hParent = 0;
-			helpInsert.hInsertAfter = TVI_ROOT;
-			helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
-			helpInsert.item.pszText = "Root";
-			helpInsert.item.cChildren = I_CHILDRENCALLBACK;
-			helpInsert.item.lParam = root->pos;
-
-			TreeView_InsertItem(tree, &helpInsert);
-
-			labelAllocCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 0, 5, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
-			labelFreeCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 1, 5, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
-			labelOperationCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 2, 5, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
-
-			labelBlockCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 0, 30, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
-			labelByteCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 1, 30, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
-
-			// Sorting style
-			labelSorting = CreateWindow("STATIC", "Sorting:", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 0, 55, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
-
-			sortingSize = CreateWindowA("BUTTON", "Size", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON | WS_GROUP, 5 + (width - 10) / 5 * 0, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
-			sortingObjects = CreateWindowA("BUTTON", "Objects", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON, 5 + (width - 10) / 5 * 1, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
-			sortingAlloc = CreateWindowA("BUTTON", "Alloc", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON, 5 + (width - 10) / 5 * 2, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
-			sortingFree = CreateWindowA("BUTTON", "Free", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON, 5 + (width - 10) / 5 * 3, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
-			sortingTotalAllocated = CreateWindowA("BUTTON", "All-time", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON, 5 + (width - 10) / 5 * 4, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
-
-			Button_SetCheck(sortingSize, 1);
-
-			SetTimer(window, 10001, 200, 0);
-
-			UpdateWindow(window);
 		}
 
 		~memory_dashboard()
@@ -201,13 +153,9 @@ namespace muitv
 			if(!ptr)
 				return;
 
+			memory_block* block = (memory_block*)((char*)ptr - sizeof(memory_block));
+
 			EnterCriticalSection(&cs);
-
-			char* cPtr = (char*)(ptr);
-
-			cPtr -= sizeof(memory_block);
-
-			memory_block* block = (memory_block*)cPtr;
 
 			int size = block->blockSize;
 
@@ -351,6 +299,75 @@ namespace muitv
 				update_tree_display(child, mode);
 
 				child = TreeView_GetNextSibling(tree, child);
+			}
+		}
+
+		void window_create()
+		{
+			HINSTANCE instance = GetModuleHandle(0);
+
+			RECT windowRect = { 0, 0, 500, 500 };
+			AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, false);
+
+			unsigned width = windowRect.right - windowRect.left;
+			unsigned height = windowRect.bottom - windowRect.top;
+
+			window = CreateWindow("MUITV_DASHBOARD", "muitv - Dashboard", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, instance, this);
+
+			SetWindowLongPtr(window, GWLP_USERDATA, (uintptr_t)this);
+
+			INITCOMMONCONTROLSEX commControlTypes;
+			commControlTypes.dwSize = sizeof(INITCOMMONCONTROLSEX);
+			commControlTypes.dwICC = ICC_TREEVIEW_CLASSES;
+			InitCommonControlsEx(&commControlTypes);
+
+			tree = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | WS_VISIBLE | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS, 5, 105, width - 15, height - 115, window, 0, instance, 0);
+
+			TreeView_SetExtendedStyle(tree, TVS_EX_DOUBLEBUFFER, TVS_EX_DOUBLEBUFFER);
+
+			TVINSERTSTRUCT helpInsert;
+
+			helpInsert.hParent = 0;
+			helpInsert.hInsertAfter = TVI_ROOT;
+			helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
+			helpInsert.item.pszText = "Root";
+			helpInsert.item.cChildren = I_CHILDRENCALLBACK;
+			helpInsert.item.lParam = root->pos;
+
+			TreeView_InsertItem(tree, &helpInsert);
+
+			labelAllocCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 0, 5, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+			labelFreeCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 1, 5, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+			labelOperationCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 2, 5, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+
+			labelBlockCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 0, 30, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+			labelByteCount = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 1, 30, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+
+			// Sorting style
+			labelSorting = CreateWindow("STATIC", "Sorting:", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 3 * 0, 55, (width - 10) / 3 - 5, 20, window, 0, instance, 0);
+
+			sortingSize = CreateWindowA("BUTTON", "Size", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON | WS_GROUP, 5 + (width - 10) / 5 * 0, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
+			sortingObjects = CreateWindowA("BUTTON", "Objects", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON, 5 + (width - 10) / 5 * 1, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
+			sortingAlloc = CreateWindowA("BUTTON", "Alloc", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON, 5 + (width - 10) / 5 * 2, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
+			sortingFree = CreateWindowA("BUTTON", "Free", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON, 5 + (width - 10) / 5 * 3, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
+			sortingTotalAllocated = CreateWindowA("BUTTON", "All-time", WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON, 5 + (width - 10) / 5 * 4, 80, (width - 10) / 5 - 5, 20, window, 0, instance, 0);
+
+			Button_SetCheck(sortingSize, 1);
+
+			SetTimer(window, 10001, 200, 0);
+
+			UpdateWindow(window);
+
+			for(;;)
+			{
+				MSG msg;
+				while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+				{
+					TranslateMessage(&msg);
+					DispatchMessage(&msg);
+				}
+
+				Sleep(16);
 			}
 		}
 
@@ -504,6 +521,15 @@ namespace muitv
 
 		HWND tree;
 	};
+
+	DWORD CALLBACK detail::window_thread(LPVOID lpThreadParameter)
+	{
+		memory_dashboard *memoryMan = (memory_dashboard*)lpThreadParameter;
+
+		memoryMan->window_create();
+
+		return 0;
+	}
 
 	LRESULT CALLBACK detail::window_proc(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam)
 	{
