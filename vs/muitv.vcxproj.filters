@@ -45,6 +45,12 @@
     <ClInclude Include="..\memory_block.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\dynamic_array.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="../muitv.cpp">

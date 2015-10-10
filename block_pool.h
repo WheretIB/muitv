@@ -3,6 +3,8 @@
 #include <new>
 #include <cstdint>
 
+#include "internal.h"
+
 namespace muitv
 {
 	template<typename T, unsigned countInBlock>
@@ -34,7 +36,7 @@ namespace muitv
 			{
 				large_block *following = activePages->next;
 
-				delete activePages;
+				detail::free(activePages);
 
 				activePages = following;
 			}
@@ -53,10 +55,10 @@ namespace muitv
 			{
 				if(lastNum == countInBlock)
 				{
-					large_block *newPage = new large_block();
+					large_block *nextPage = detail::alloc<large_block>();
 
-					newPage->next = activePages;
-					activePages = newPage;
+					nextPage->next = activePages;
+					activePages = nextPage;
 
 					lastNum = 0;
 				}

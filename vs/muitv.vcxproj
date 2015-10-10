@@ -143,8 +143,10 @@
   <ItemGroup>
     <ClInclude Include="../muitv.h" />
     <ClInclude Include="..\block_pool.h" />
+    <ClInclude Include="..\dynamic_array.h" />
     <ClInclude Include="..\function_info.h" />
     <ClInclude Include="..\hash_map.h" />
+    <ClInclude Include="..\internal.h" />
     <ClInclude Include="..\memory_block.h" />
     <ClInclude Include="..\memory_stats.h" />
     <ClInclude Include="..\source_info.h" />

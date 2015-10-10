@@ -31,6 +31,7 @@ extern "C"
 #include "memory_stats.h"
 #include "stack_info.h"
 #include "memory_block.h"
+#include "dynamic_array.h"
 
 namespace muitv
 {
@@ -575,7 +576,7 @@ namespace muitv
 
 		block_pool<stack_element, 1024> stackElementPool;
 
-		std::vector<stack_element*> stackElements;
+		dynamic_array<stack_element*> stackElements;
 
 		// Display
 		HWND window;

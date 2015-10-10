@@ -1,9 +1,9 @@
 #pragma once
 
 #include <algorithm>
-#include <vector>
 
 #include "function_info.h"
+#include "dynamic_array.h"
 
 namespace muitv
 {
@@ -40,7 +40,7 @@ namespace muitv
 		// How much memory in total was allocated at this path segment
 		unsigned long long allocSize;
 
-		std::vector<stack_element*> children;
+		dynamic_array<stack_element*> children;
 
 		const char* get_name()
 		{

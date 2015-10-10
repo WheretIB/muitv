@@ -2,6 +2,7 @@
 
 #include <assert.h>
 
+#include "internal.h"
 #include "block_pool.h"
 
 namespace muitv
@@ -23,14 +24,14 @@ namespace muitv
 
 		hash_map()
 		{
-			entries = new node*[bucketCount];
+			entries = detail::alloc<node*>(bucketCount);
 			memset(entries, 0, sizeof(node*) * bucketCount);
 			count = 0;
 		}
 
 		~hash_map()
 		{
-			delete[] entries;
+			detail::free(entries);
 		}
 
 		value* insert(const key& key, value value)
