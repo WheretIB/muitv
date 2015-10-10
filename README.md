@@ -21,3 +21,11 @@ This project provides a dynamically loaded library with a memory allocator that 
 #pragma comment(lib, "muitv.lib")
 ```
 * Place 'muitv.dll' to your application executable folder
+
+## Configuration
+
+By default, only global new/delete operators are overloaded by the library. In order to provide instrumentation for C library memory allocation functions, before including the 'muitv.h' header file, provide the following definition:
+```
+#define OVERRIDE_CLIB_MALLOC
+```
+(Note that this option is currently only available on x86)
