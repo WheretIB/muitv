@@ -32,7 +32,7 @@ void operator delete[](void* ptr)
 }
 #endif
 
-#if defined(OVERRIDE_CLIB_MALLOC)
+#if defined(MUITV_OVERRIDE_CLIB_MALLOC)
 extern "C" _declspec(dllimport) int __stdcall VirtualProtect(void* lpAddress, size_t dwSize, unsigned long flNewProtect, unsigned long* lpflOldProtect);
 
 namespace muitv
@@ -54,7 +54,7 @@ namespace muitv
 		VirtualProtect(dest, 5, old_protect, &old_protect);
 	}
 
-	unsigned muitv_patch_clib_functions()
+	unsigned patch_clib_functions()
 	{
 		patch_with_jump((void*)malloc, (void*)muitv_alloc);
 		patch_with_jump((void*)calloc, (void*)muitv_calloc);
@@ -64,6 +64,6 @@ namespace muitv
 		return 0;
 	}
 
-	static const unsigned muitv_patch_clib_functions_ready = muitv_patch_clib_functions();
+	static const unsigned patch_clib_functions_ready = patch_clib_functions();
 }
 #endif
