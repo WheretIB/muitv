@@ -121,7 +121,11 @@ namespace muitv
 			char *ptr = (char*)HeapAlloc(heap, HEAP_ZERO_MEMORY, size + (sizeof(void*) * stackSize) + sizeof(memory_block) + memory_alignment);
 
 			if(!ptr)
+			{
+				LeaveCriticalSection(&cs);
+
 				return 0;
+			}
 
 			uintptr_t currStart = uintptr_t(ptr + (sizeof(void*) * stackSize) + sizeof(memory_block));
 
