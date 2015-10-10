@@ -486,7 +486,7 @@ namespace muitv
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 
-		static const size_t skipBegin = 2;
+		static const size_t skipBegin = 1;
 		static const size_t skipEnd = 4;
 
 		CRITICAL_SECTION cs;
