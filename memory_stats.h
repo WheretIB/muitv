@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 namespace muitv
 {
 	struct memory_stats
@@ -14,11 +16,11 @@ namespace muitv
 			memopsCount = 0;
 		}
 
-		unsigned allocCount;
-		unsigned blocksCount;
-		unsigned bytesCount;
-		unsigned freeCount;
-		unsigned lastBlockNum;
-		unsigned memopsCount;
+		size_t allocCount;
+		size_t blocksCount;
+		size_t bytesCount;
+		size_t freeCount;
+		size_t lastBlockNum;
+		size_t memopsCount;
 	};
 }

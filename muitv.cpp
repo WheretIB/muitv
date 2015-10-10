@@ -138,7 +138,7 @@ namespace muitv
 
 			memcpy(block->stackInfo.stackInfo, stackBuf, sizeof(void*) * stackSize);
 
-			stats.bytesCount += size;
+			stats.bytesCount += block->blockSize;
 			stats.blocksCount++;
 			stats.memopsCount++;
 			stats.allocCount++;
@@ -196,9 +196,7 @@ namespace muitv
 
 			EnterCriticalSection(&cs);
 
-			int size = block->blockSize;
-
-			stats.bytesCount -= size;
+			stats.bytesCount -= block->blockSize;
 			stats.blocksCount--;
 			stats.memopsCount++;
 			stats.freeCount++;
@@ -227,7 +225,7 @@ namespace muitv
 			return size;
 		}
 
-		void add_call_stack_to_tree(unsigned size)
+		void add_call_stack_to_tree(size_t size)
 		{
 			EnterCriticalSection(&cs);
 
@@ -246,7 +244,7 @@ namespace muitv
 			LeaveCriticalSection(&cs);
 		}
 
-		void insert_block_to_tree(stack_element *node, void** addresses, unsigned count, unsigned size, bool isAllocation)
+		void insert_block_to_tree(stack_element *node, void** addresses, size_t count, size_t size, bool isAllocation)
 		{
 			if(isAllocation)
 			{
@@ -270,7 +268,7 @@ namespace muitv
 
 				bool found = false;
 
-				for(unsigned i = 0; i < node->children.size(); i++)
+				for(size_t i = 0; i < node->children.size(); i++)
 				{
 					if(node->children[i]->fInfo == fInfo)
 					{
@@ -315,15 +313,15 @@ namespace muitv
 		char* get_display_info(stack_element *node, detail::display_info mode)
 		{
 			if(mode == detail::display_alloc)
-				return detail::formatted_string("%s (%d)", node->get_name(), node->allocCount);
+				return detail::formatted_string("%s (%Iu)", node->get_name(), node->allocCount);
 
 			if(mode == detail::display_free)
-				return detail::formatted_string("%s (%d)", node->get_name(), node->freeCount);
+				return detail::formatted_string("%s (%Iu)", node->get_name(), node->freeCount);
 
 			if(mode == detail::display_alltime)
-				return detail::formatted_string("%s (x%d %lldkb)", node->get_name(), node->allocCount, node->allocSize / 1024);
+				return detail::formatted_string("%s (x%Iu %lldkb)", node->get_name(), node->allocCount, node->allocSize / 1024);
 
-			return detail::formatted_string("%s (x%d for %dkb)", node->get_name(), node->objectCount, node->objectSize / 1024);
+			return detail::formatted_string("%s (x%Iu for %Iukb)", node->get_name(), node->objectCount, node->objectSize / 1024);
 		}
 
 		stack_element::sort_func get_display_sort(detail::display_info mode)
@@ -459,7 +457,7 @@ namespace muitv
 					if(info->item.mask & TVIF_CHILDREN)
 					{
 						if(size_t(info->item.lParam) < stackElements.size())
-							info->item.cChildren = stackElements[info->item.lParam]->children.size();
+							info->item.cChildren = (int)stackElements[info->item.lParam]->children.size();
 						else
 							info->item.cChildren = 0;
 					}
@@ -483,7 +481,7 @@ namespace muitv
 
 						parent->sort_children(get_display_sort(mode));
 
-						for(unsigned i = 0; i < parent->children.size(); i++)
+						for(size_t i = 0; i < parent->children.size(); i++)
 						{
 							stack_element *elem = parent->children[i];
 
@@ -509,11 +507,11 @@ namespace muitv
 				{
 					EnterCriticalSection(&cs);
 
-					Static_SetText(labelAllocCount, detail::formatted_string("Alloc: %d", stats.allocCount));
-					Static_SetText(labelFreeCount, detail::formatted_string("Free: %d", stats.freeCount));
-					Static_SetText(labelOperationCount, detail::formatted_string("Total: %d", stats.memopsCount));
+					Static_SetText(labelAllocCount, detail::formatted_string("Alloc: %Iu", stats.allocCount));
+					Static_SetText(labelFreeCount, detail::formatted_string("Free: %Iu", stats.freeCount));
+					Static_SetText(labelOperationCount, detail::formatted_string("Total: %Iu", stats.memopsCount));
 
-					Static_SetText(labelBlockCount, detail::formatted_string("Blocks: %d", stats.blocksCount));
+					Static_SetText(labelBlockCount, detail::formatted_string("Blocks: %Iu", stats.blocksCount));
 					Static_SetText(labelByteCount, detail::formatted_string("Size: %.3fmb", stats.bytesCount / 1024.0 / 1024.0));
 
 					TVITEM item;
@@ -641,7 +639,7 @@ extern "C" __declspec(dllexport) size_t muitv_get_size(void* ptr)
 	return muitv::memory_dashboard::instance().get_size(ptr);
 }
 
-extern "C" __declspec(dllexport) void muitv_add_call_stack_to_tree(unsigned size)
+extern "C" __declspec(dllexport) void muitv_add_call_stack_to_tree(size_t size)
 {
 	muitv::memory_dashboard::instance().add_call_stack_to_tree(size);
 }

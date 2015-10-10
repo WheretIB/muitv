@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 namespace muitv
 {
 	struct stack_info
@@ -10,7 +12,7 @@ namespace muitv
 			stackInfo = 0;
 		}
 
-		unsigned stackSize;
+		size_t stackSize;
 		void** stackInfo;
 	};
 }

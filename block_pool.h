@@ -1,6 +1,7 @@
 #pragma once
 
 #include <new>
+#include <cstdint>
 
 namespace muitv
 {
@@ -82,6 +83,6 @@ namespace muitv
 	private:
 		small_block *freeBlocks;
 		large_block *activePages;
-		unsigned lastNum;
+		size_t lastNum;
 	};
 }

@@ -56,7 +56,7 @@ namespace muitv
 		{
 			std::sort(children.begin(), children.end(), sortFunction);
 
-			for(unsigned i = 0; i < children.size(); i++)
+			for(size_t i = 0; i < children.size(); i++)
 				children[i]->sort_children(sortFunction);
 		}
 
