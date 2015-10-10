@@ -56,6 +56,8 @@ namespace muitv
 
 	unsigned patch_clib_functions()
 	{
+		muitv_free(0);
+
 		patch_with_jump((void*)malloc, (void*)muitv_alloc);
 		patch_with_jump((void*)calloc, (void*)muitv_calloc);
 		patch_with_jump((void*)realloc, (void*)muitv_realloc);
