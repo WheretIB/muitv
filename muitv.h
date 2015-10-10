@@ -33,7 +33,7 @@ void operator delete[](void* ptr)
 #endif
 
 #if defined(MUITV_OVERRIDE_CLIB_MALLOC)
-extern "C" _declspec(dllimport) int __stdcall VirtualProtect(void* lpAddress, size_t dwSize, unsigned long flNewProtect, unsigned long* lpflOldProtect);
+extern "C" __declspec(dllimport) int __stdcall VirtualProtect(void* lpAddress, unsigned long dwSize, unsigned long flNewProtect, unsigned long* lpflOldProtect);
 
 namespace muitv
 {
