@@ -34,6 +34,8 @@ extern "C"
 
 namespace muitv
 {
+	const unsigned memory_alignment = 16;
+
 	namespace detail
 	{
 		char* formatted_string(const char* src, ...)
@@ -116,16 +118,19 @@ namespace muitv
 			void* stackBuf[maxStackTraceDepth];
 			size_t stackSize = RtlCaptureStackBackTrace(0, maxStackTraceDepth, stackBuf, 0);
 
-			char* ptr = (char*)HeapAlloc(heap, HEAP_ZERO_MEMORY, size + (sizeof(void*) * stackSize) + sizeof(memory_block));
+			char *ptr = (char*)HeapAlloc(heap, HEAP_ZERO_MEMORY, size + (sizeof(void*) * stackSize) + sizeof(memory_block) + memory_alignment);
 
 			if(!ptr)
 				return 0;
 
-			memory_block* block = (memory_block*)(ptr + (sizeof(void*) * stackSize));
+			uintptr_t currStart = uintptr_t(ptr + (sizeof(void*) * stackSize) + sizeof(memory_block));
+
+			size_t memoryOffset = memory_alignment - currStart % memory_alignment;
+
+			memory_block* block = (memory_block*)(ptr + (sizeof(void*) * stackSize) + memoryOffset);
 
 			block->blockNum = stats.lastBlockNum++;
 			block->blockSize = size;
-			block->blockStart = ptr + sizeof(memory_block) + (sizeof(void*) * stackSize);
 			block->blockInfoStart = ptr;
 
 			block->stackInfo.stackSize = stackSize;
@@ -143,7 +148,7 @@ namespace muitv
 
 			LeaveCriticalSection(&cs);
 
-			ptr += sizeof(memory_block) + (sizeof(void*) * stackSize);
+			ptr += (sizeof(void*) * stackSize) + memoryOffset + sizeof(memory_block);
 
 			return ptr;
 		}

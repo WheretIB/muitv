@@ -8,7 +8,6 @@ namespace muitv
 	{
 		size_t blockNum;
 		size_t blockSize;
-		void* blockStart;
 		stack_info stackInfo;
 		void* blockInfoStart;
 	};
