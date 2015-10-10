@@ -24,11 +24,19 @@ This project provides a dynamically loaded library with a low-overhead memory al
 
 ## Configuration
 
+####  C library memory allocation override
 By default, only global new/delete operators are overloaded by the library. In order to provide instrumentation for C library memory allocation functions, before including the 'muitv.h' header file, provide the following definition:
 ```
-#define OVERRIDE_CLIB_MALLOC
+#define MUITV_OVERRIDE_CLIB_MALLOC
 ```
 (Note that this option is currently only available on x86)
+
+#### Library use as an event recorder
+As an artifact of the library design, it can be reused to put any call stack to the tree view. In order to create a custom event view, before including the 'muitv.h' header file, provide the following definition:
+```
+#define MUITV_MANUAL_ONLY
+```
+Use ```muitv_add_call_stack_to_tree``` function to log events.
 
 ## Known issues
 
@@ -43,4 +51,4 @@ error LNK2005: "void __cdecl operator delete[](void *)" (??_V@YAXPAX@Z) already 
 Just link your project a second time to resolve this issue.
 
 #### C allocation function override
-When ```OVERRIDE_CLIB_MALLOC``` is in use, the library will attempt to patch the malloc/calloc/realloc/free functions in memory. Depending on the execution order and contents of global initializers in your application, some allocation might have happened before the override and the application will crash.
+When ```MUITV_OVERRIDE_CLIB_MALLOC``` is in use, the library will attempt to patch the malloc/calloc/realloc/free functions in memory. Depending on the execution order and contents of global initializers in your application, some allocation might have happened before the override and the application will crash.
