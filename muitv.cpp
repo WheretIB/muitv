@@ -153,6 +153,40 @@ namespace muitv
 			return ptr;
 		}
 
+		void* calloc(size_t count, size_t size)
+		{
+			void* ptr = malloc(count * size);
+
+			if(ptr)
+				memset(ptr, 0, count * size);
+
+			return ptr;
+		}
+
+		void* realloc(void* ptr, size_t size)
+		{
+			if(!ptr)
+				return malloc(size);
+
+			if(!size)
+			{
+				free(ptr);
+				return 0;
+			}
+
+			size_t oldSize = get_size(ptr);
+
+			void* result = malloc(size);
+
+			if(result)
+			{
+				memcpy(result, ptr, (size < oldSize ? size : oldSize));
+				free(ptr);
+			}
+
+			return result;
+		}
+
 		void free(void *ptr)
 		{
 			if(!ptr)
@@ -175,6 +209,22 @@ namespace muitv
 			HeapFree(heap, 0, block->blockInfoStart);
 
 			LeaveCriticalSection(&cs);
+		}
+
+		size_t get_size(void *ptr)
+		{
+			if(!ptr)
+				return 0;
+
+			memory_block* block = (memory_block*)((char*)ptr - sizeof(memory_block));
+
+			EnterCriticalSection(&cs);
+
+			size_t size = block->blockSize;
+
+			LeaveCriticalSection(&cs);
+
+			return size;
 		}
 
 		void insert_block_to_tree(stack_element *node, void** addresses, unsigned count, unsigned size, bool isAllocation)
@@ -552,7 +602,22 @@ extern "C" __declspec(dllexport) void* muitv_alloc(size_t size)
 	return muitv::memory_dashboard::instance().malloc(size);
 }
 
+extern "C" __declspec(dllexport) void* muitv_calloc(size_t count, size_t size)
+{
+	return muitv::memory_dashboard::instance().calloc(count, size);
+}
+
+extern "C" __declspec(dllexport) void* muitv_realloc(void* ptr, size_t size)
+{
+	return muitv::memory_dashboard::instance().realloc(ptr, size);
+}
+
 extern "C" __declspec(dllexport) void muitv_free(void* ptr)
 {
 	muitv::memory_dashboard::instance().free(ptr);
+}
+
+extern "C" __declspec(dllexport) size_t muitv_get_size(void* ptr)
+{
+	return muitv::memory_dashboard::instance().get_size(ptr);
 }
