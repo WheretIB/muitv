@@ -55,7 +55,7 @@ namespace muitv
 
 		inline unsigned ptrHash(void* const& value)
 		{
-			return uintptr_t(value) >> 4;
+			return unsigned(uintptr_t(value) >> 4);
 		}
 
 		inline bool ptrCompare(void* const& lhs, void *const& rhs)
