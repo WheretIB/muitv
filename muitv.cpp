@@ -450,6 +450,38 @@ namespace muitv
 			return node;
 		}
 
+		void expand_tree_nodes(HTREEITEM parent)
+		{
+			TVITEM item;
+
+			item.mask = TVIF_TEXT | TVIF_PARAM;
+			item.cchTextMax = 0;
+			item.hItem = parent;
+
+			TreeView_GetItem(tree, &item);
+
+			if((size_t)item.lParam < stackElements.size())
+			{
+				stack_element *node = stackElements[item.lParam];
+
+				const char *name = node->get_name();
+
+				if(strstr(name, "std::") == name || strstr(name, "operator new") == name)
+					return;
+			}
+
+			TreeView_Expand(tree, parent, TVE_EXPAND);
+
+			HTREEITEM child = TreeView_GetChild(tree, parent);
+
+			while(child)
+			{
+				expand_tree_nodes(child);
+
+				child = TreeView_GetNextSibling(tree, child);
+			}
+		}
+
 		int node_compare_func(size_t leftPos, size_t rightPos)
 		{
 			stack_element *left = stackElements[leftPos];
@@ -471,12 +503,16 @@ namespace muitv
 			HINSTANCE instance = GetModuleHandle(0);
 
 			RECT windowRect = { 0, 0, 500, 500 };
-			AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, false);
 
 			unsigned width = windowRect.right - windowRect.left;
 			unsigned height = windowRect.bottom - windowRect.top;
 
-			window = CreateWindow("MUITV_DASHBOARD", "muitv - Dashboard", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, instance, this);
+			AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, false);
+
+			unsigned adjustedWidth = windowRect.right - windowRect.left;
+			unsigned adjustedHeight = windowRect.bottom - windowRect.top;
+
+			window = CreateWindow("MUITV_DASHBOARD", "muitv - Dashboard", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, adjustedWidth, adjustedHeight, 0, 0, instance, this);
 
 			SetWindowLongPtr(window, GWLP_USERDATA, (uintptr_t)this);
 
@@ -485,7 +521,7 @@ namespace muitv
 			commControlTypes.dwICC = ICC_TREEVIEW_CLASSES;
 			InitCommonControlsEx(&commControlTypes);
 
-			tree = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | WS_VISIBLE | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS, 5, 105, width - 15, height - 115, window, 0, instance, 0);
+			tree = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | WS_VISIBLE | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS, 5, 135, width - 10, height - 140, window, 0, instance, 0);
 
 			TreeView_SetExtendedStyle(tree, TVS_EX_DOUBLEBUFFER, TVS_EX_DOUBLEBUFFER);
 
@@ -518,6 +554,9 @@ namespace muitv
 
 			Button_SetCheck(sortingSize, 1);
 
+			buttonExpandAll = CreateWindowA("BUTTON", "Expand all", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 4 * 0, 105, (width - 10) / 4 - 5, 25, window, 0, instance, 0);
+			buttonCollapseAll = CreateWindowA("BUTTON", "Collapse all", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 4 * 1, 105, (width - 10) / 4 - 5, 25, window, 0, instance, 0);
+
 			SetTimer(window, 10001, 200, 0);
 
 			UpdateWindow(window);
@@ -541,6 +580,33 @@ namespace muitv
 		{
 			switch(message)
 			{
+			case WM_COMMAND:
+				if((HWND)lParam == buttonExpandAll && HIWORD(wParam) == BN_CLICKED)
+				{
+					EnterCriticalSection(&cs);
+
+					HTREEITEM root = TreeView_GetRoot(tree);
+
+					expand_tree_nodes(root);
+
+					LeaveCriticalSection(&cs);
+				}
+				else if((HWND)lParam == buttonCollapseAll && HIWORD(wParam) == BN_CLICKED)
+				{
+					EnterCriticalSection(&cs);
+
+					HTREEITEM root = TreeView_GetRoot(tree);
+
+					TreeView_Expand(tree, root, TVE_COLLAPSE);
+
+					while(HTREEITEM child = TreeView_GetChild(tree, root))
+						TreeView_DeleteItem(tree, child);
+
+					expand_tree_nodes(root);
+
+					LeaveCriticalSection(&cs);
+				}
+				break;
 			case WM_NOTIFY:
 				if(((LPNMHDR)lParam)->code == TVN_GETDISPINFO && ((LPNMHDR)lParam)->hwndFrom == tree)
 				{
@@ -637,7 +703,10 @@ namespace muitv
 					SetWindowPos(sortingFree, HWND_TOP, 5 + (width - 10) / 5 * 3, 80, (width - 10) / 5 - 5, 20, 0);
 					SetWindowPos(sortingTotalAllocated, HWND_TOP, 5 + (width - 10) / 5 * 4, 80, (width - 10) / 5 - 5, 20, 0);
 
-					SetWindowPos(tree, HWND_TOP, 5, 105, width - 10, height - 110, 0);
+					SetWindowPos(buttonExpandAll, HWND_TOP, 5 + (width - 10) / 4 * 0, 105, (width - 10) / 4 - 5, 25, 0);
+					SetWindowPos(buttonCollapseAll, HWND_TOP, 5 + (width - 10) / 4 * 1, 105, (width - 10) / 4 - 5, 25, 0);
+
+					SetWindowPos(tree, HWND_TOP, 5, 135, width - 10, height - 140, 0);
 				}
 				break;
 			}
@@ -677,6 +746,9 @@ namespace muitv
 		HWND sortingAlloc;
 		HWND sortingFree;
 		HWND sortingTotalAllocated;
+
+		HWND buttonExpandAll;
+		HWND buttonCollapseAll;
 
 		HWND tree;
 
