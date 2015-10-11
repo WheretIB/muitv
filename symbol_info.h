@@ -19,11 +19,6 @@ namespace muitv
 		{
 			return unsigned(value >> 4);
 		}
-
-		inline bool d64Compare(const DWORD64& lhs, const DWORD64& rhs)
-		{
-			return lhs == rhs;
-		}
 	}
 
 	struct symbol_info
@@ -102,8 +97,8 @@ namespace muitv
 
 		HANDLE process;
 
-		hash_map<DWORD64, DWORD64, detail::d64Hash, detail::d64Compare, 32 * 1024> addressRemap;
-		hash_map<DWORD64, function_info, detail::d64Hash, detail::d64Compare, 32 * 1024> functionMap;
-		hash_map<DWORD64, source_info, detail::d64Hash, detail::d64Compare, 32 * 1024> sourceMap;
+		hash_map<DWORD64, DWORD64, detail::d64Hash, 32 * 1024> addressRemap;
+		hash_map<DWORD64, function_info, detail::d64Hash, 32 * 1024> functionMap;
+		hash_map<DWORD64, source_info, detail::d64Hash, 32 * 1024> sourceMap;
 	};
 }

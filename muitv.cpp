@@ -58,11 +58,6 @@ namespace muitv
 			return unsigned(uintptr_t(value) >> 4);
 		}
 
-		inline bool ptrCompare(void* const& lhs, void *const& rhs)
-		{
-			return lhs == rhs;
-		}
-
 		DWORD CALLBACK window_thread(LPVOID lpThreadParameter);
 
 		LRESULT CALLBACK window_proc(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam);
@@ -773,7 +768,7 @@ namespace muitv
 
 		dynamic_array<stack_element*> stackElements;
 
-		hash_map<void*, void*, detail::ptrHash, detail::ptrCompare, 8192u> manualMap;
+		hash_map<void*, void*, detail::ptrHash, 8192u> manualMap;
 
 		// Display
 		HWND window;

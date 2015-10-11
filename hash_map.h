@@ -7,7 +7,7 @@
 
 namespace muitv
 {
-	template<typename key, typename value, unsigned (*HashFunction)(const key&), bool (*CompareFunction)(const key&, const key&), unsigned buckets>
+	template<typename key, typename value, unsigned (*HashFunction)(const key&), unsigned buckets>
 	class hash_map
 	{
 		static const unsigned bucketCount = buckets;
@@ -62,8 +62,9 @@ namespace muitv
 
 			while(curr)
 			{
-				if(curr->hash == hash && CompareFunction(curr->key, key))
+				if(curr->hash == hash && curr->key == key)
 					break;
+
 				prev = curr;
 				curr = curr->next;
 			}
@@ -82,13 +83,6 @@ namespace muitv
 
 		value* find(const key& key)
 		{
-			node *n = first(key);
-
-			return n ? &n->value : 0;
-		}
-
-		node* first(const key& key)
-		{
 			unsigned hash = HashFunction(key);
 			unsigned bucket = hash & bucketMask;
 
@@ -96,29 +90,13 @@ namespace muitv
 
 			while(curr)
 			{
-				if(curr->hash == hash && CompareFunction(curr->key, key))
-					return curr;
+				if(curr->hash == hash && curr->key == key)
+					break;
+
 				curr = curr->next;
 			}
 
-			return 0;
-		}
-
-		node* next(node* curr)
-		{
-			unsigned hash = curr->hash;
-			const Key &key = curr->key;
-
-			curr = curr->next;
-
-			while(curr)
-			{
-				if(curr->hash == hash && CompareFunction(curr->key, key))
-					return curr;
-				curr = curr->next;
-			}
-
-			return 0;
+			return curr ? &curr->value : 0;
 		}
 
 		unsigned size()
