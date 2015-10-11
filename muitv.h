@@ -9,6 +9,8 @@ extern "C" __declspec(dllimport) void* muitv_realloc(void* ptr, size_t size);
 extern "C" __declspec(dllimport) void muitv_free(void* ptr);
 extern "C" __declspec(dllimport) size_t muitv_get_size(void* ptr);
 extern "C" __declspec(dllimport) void muitv_add_call_stack_to_tree(size_t size);
+extern "C" __declspec(dllimport) void muitv_add_object(void* ptr, size_t size);
+extern "C" __declspec(dllimport) void muitv_remove_object(void* ptr);
 
 #if !defined(MUITV_MANUAL_ONLY)
 void* operator new(size_t size)

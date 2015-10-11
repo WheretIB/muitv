@@ -53,6 +53,16 @@ namespace muitv
 			return temp;
 		}
 
+		inline unsigned ptrHash(void* const& value)
+		{
+			return uintptr_t(value) >> 4;
+		}
+
+		inline bool ptrCompare(void* const& lhs, void *const& rhs)
+		{
+			return lhs == rhs;
+		}
+
 		DWORD CALLBACK window_thread(LPVOID lpThreadParameter);
 
 		LRESULT CALLBACK window_proc(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam);
@@ -128,7 +138,7 @@ namespace muitv
 			return inst;
 		}
 
-		void* malloc(size_t size)
+		void* malloc(size_t size, bool fake = false)
 		{
 			EnterCriticalSection(&cs);
 
@@ -136,7 +146,7 @@ namespace muitv
 			void* stackBuf[maxStackTraceDepth];
 			size_t stackSize = RtlCaptureStackBackTrace(0, maxStackTraceDepth, stackBuf, 0);
 
-			char *ptr = (char*)HeapAlloc(heap, HEAP_ZERO_MEMORY, size + (sizeof(void*) * stackSize) + sizeof(memory_block) + memory_alignment);
+			char *ptr = (char*)HeapAlloc(heap, HEAP_ZERO_MEMORY, (fake ? 0 : size) + (sizeof(void*) * stackSize) + sizeof(memory_block) + memory_alignment);
 
 			if(!ptr)
 			{
@@ -262,6 +272,31 @@ namespace muitv
 
 			if(stackSize > skipBegin + skipEnd)
 				insert_block_to_tree(root, stackBuf + skipBegin, stackSize - (skipBegin + skipEnd), size, true);
+
+			LeaveCriticalSection(&cs);
+		}
+
+		void add_object(void* ptr, size_t size)
+		{
+			EnterCriticalSection(&cs);
+
+			void *handle = malloc(size, true);
+
+			manualMap.insert(ptr, handle);
+
+			LeaveCriticalSection(&cs);
+		}
+
+		void remove_object(void* ptr)
+		{
+			EnterCriticalSection(&cs);
+
+			if(void **handle = manualMap.find(ptr))
+			{
+				free(*handle);
+
+				manualMap.remove(ptr);
+			}
 
 			LeaveCriticalSection(&cs);
 		}
@@ -729,6 +764,8 @@ namespace muitv
 
 		dynamic_array<stack_element*> stackElements;
 
+		hash_map<void*, void*, detail::ptrHash, detail::ptrCompare, 8192u> manualMap;
+
 		// Display
 		HWND window;
 
@@ -813,4 +850,14 @@ extern "C" __declspec(dllexport) size_t muitv_get_size(void* ptr)
 extern "C" __declspec(dllexport) void muitv_add_call_stack_to_tree(size_t size)
 {
 	muitv::memory_dashboard::instance().add_call_stack_to_tree(size);
+}
+
+extern "C" __declspec(dllexport) void muitv_add_object(void* ptr, size_t size)
+{
+	muitv::memory_dashboard::instance().add_object(ptr, size);
+}
+
+extern "C" __declspec(dllexport) void muitv_remove_object(void* ptr)
+{
+	muitv::memory_dashboard::instance().remove_object(ptr);
 }
