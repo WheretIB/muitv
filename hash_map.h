@@ -75,7 +75,7 @@ namespace muitv
 			else
 				entries[bucket] = curr->next;
 
-			nodePool.Deallocate(curr);
+			nodePool.free(curr);
 
 			count--;
 		}
