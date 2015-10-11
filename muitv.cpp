@@ -57,6 +57,8 @@ namespace muitv
 
 		LRESULT CALLBACK window_proc(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam);
 
+		int CALLBACK tree_node_compare_func(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort);
+
 		enum display_info
 		{
 			display_size,
@@ -102,6 +104,8 @@ namespace muitv
 			wcex.lpszClassName	= "MUITV_DASHBOARD";
 
 			RegisterClassEx(&wcex);
+
+			displayMode = detail::display_size;
 		}
 
 		~memory_dashboard()
@@ -359,10 +363,10 @@ namespace muitv
 			return compare_object_size;
 		}
 
-		void update_tree_display(HTREEITEM parent, detail::display_info mode)
+		stack_element* update_tree_display(HTREEITEM parent, detail::display_info mode)
 		{
 			if(!parent)
-				return;
+				return 0;
 
 			TVITEM item;
 
@@ -373,7 +377,7 @@ namespace muitv
 			TreeView_GetItem(tree, &item);
 
 			if(stackElements.empty())
-				return;
+				return 0;
 
 			stack_element *node = stackElements[item.lParam];
 
@@ -382,14 +386,84 @@ namespace muitv
 
 			TreeView_SetItem(tree, &item);
 
+			node->sort_children(get_display_sort(mode));
+
+			unsigned childrenCount = 0;
+			bool outdated = false;
+
+			static size_t nextUpdateMark = 0;
+
+			size_t currentUpdateMark = nextUpdateMark++;
+
 			HTREEITEM child = TreeView_GetChild(tree, parent);
 
 			while(child)
 			{
-				update_tree_display(child, mode);
+				stack_element *stackChild = update_tree_display(child, mode);
+
+				stackChild->updateMark = currentUpdateMark;
+
+				if(childrenCount < node->children.size() && stackChild != node->children[childrenCount])
+					outdated = true;
+
+				childrenCount++;
 
 				child = TreeView_GetNextSibling(tree, child);
 			}
+
+			// Append missing children
+			if(childrenCount && childrenCount < node->children.size())
+			{
+				for(unsigned i = 0; i < node->children.size(); i++)
+				{
+					stack_element *elem = node->children[i];
+
+					if(elem->updateMark != currentUpdateMark)
+					{
+						TVINSERTSTRUCT helpInsert;
+
+						helpInsert.hParent = parent;
+						helpInsert.hInsertAfter = TVI_LAST;
+						helpInsert.item.cchTextMax = 0;
+						helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
+						helpInsert.item.pszText = get_display_info(elem, mode);
+						helpInsert.item.cChildren = I_CHILDRENCALLBACK;
+						helpInsert.item.lParam = elem->pos;
+
+						TreeView_InsertItem(tree, &helpInsert);
+					}
+				}
+			}
+
+			// Fix-up the element sorting order
+			if(outdated)
+			{
+				TVSORTCB sort;
+
+				sort.hParent = parent;
+				sort.lpfnCompare = detail::tree_node_compare_func;
+				sort.lParam = (LPARAM)this;
+
+				TreeView_SortChildrenCB(tree, &sort, 0);
+			}
+
+			return node;
+		}
+
+		int node_compare_func(size_t leftPos, size_t rightPos)
+		{
+			stack_element *left = stackElements[leftPos];
+			stack_element *right = stackElements[rightPos];
+
+			stack_element::sort_func sort = get_display_sort(displayMode);
+
+			if(sort(left, right))
+				return -1;
+
+			if(sort(right, left))
+				return 1;
+
+			return 0;
 		}
 
 		void window_create()
@@ -488,14 +562,12 @@ namespace muitv
 				{
 					LPNMTREEVIEW info = (LPNMTREEVIEW)lParam;
 
-					while(HTREEITEM child = TreeView_GetChild(tree, info->itemNew.hItem))
-						TreeView_DeleteItem(tree, child);
-
 					detail::display_info mode = get_display_mode();
 
 					EnterCriticalSection(&cs);
 
-					if(size_t(info->itemNew.lParam) < stackElements.size())
+					// If the element has a valid position and is not expanded yet
+					if(size_t(info->itemNew.lParam) < stackElements.size() && TreeView_GetChild(tree, info->itemNew.hItem) == 0)
 					{
 						stack_element *parent = stackElements[info->itemNew.lParam];
 
@@ -534,16 +606,11 @@ namespace muitv
 					Static_SetText(labelBlockCount, detail::formatted_string("Blocks: %Iu", stats.blocksCount));
 					Static_SetText(labelByteCount, detail::formatted_string("Size: %.3fmb", stats.bytesCount / 1024.0 / 1024.0));
 
-					TVITEM item;
+					displayMode = get_display_mode();
 
-					item.mask = TVIF_TEXT;
-					item.cchTextMax = 0;
-					item.pszText = get_display_info(root, get_display_mode());
-					item.hItem = TreeView_GetRoot(tree);
+					HTREEITEM root = TreeView_GetRoot(tree);
 
-					TreeView_SetItem(tree, &item);
-
-					update_tree_display(TreeView_GetChild(tree, item.hItem), get_display_mode());
+					update_tree_display(root, displayMode);
 
 					LeaveCriticalSection(&cs);
 
@@ -613,6 +680,8 @@ namespace muitv
 
 		HWND tree;
 
+		detail::display_info displayMode;
+
 		volatile bool dashboardActive;
 		volatile bool dashboardExit;
 	};
@@ -634,6 +703,13 @@ namespace muitv
 			return memoryMan->window_message_handle(hWnd, message, wParam, lParam);
 
 		return DefWindowProc(hWnd, message, wParam, lParam);
+	}
+
+	int CALLBACK detail::tree_node_compare_func(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
+	{
+		memory_dashboard *memoryMan = (memory_dashboard*)lParamSort;
+
+		return memoryMan->node_compare_func(lParam1, lParam2);
 	}
 }
 

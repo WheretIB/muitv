@@ -15,6 +15,8 @@ namespace muitv
 		{
 			pos = ~0u;
 
+			updateMark = ~0u;
+
 			fInfo = 0;
 
 			objectCount = 0;
@@ -27,6 +29,8 @@ namespace muitv
 		}
 
 		size_t pos; // Position in the global array
+
+		size_t updateMark;
 
 		function_info *fInfo;
 
