@@ -592,6 +592,10 @@ namespace muitv
 			buttonExpandAll = CreateWindowA("BUTTON", "Expand all", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 4 * 0, 105, (width - 10) / 4 - 5, 25, window, 0, instance, 0);
 			buttonCollapseAll = CreateWindowA("BUTTON", "Collapse all", WS_VISIBLE | WS_CHILD, 5 + (width - 10) / 4 * 1, 105, (width - 10) / 4 - 5, 25, window, 0, instance, 0);
 
+			checkboxRefresh = CreateWindowA("BUTTON", "Refresh tree", WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX, 5 + (width - 10) / 4 * 2, 105, (width - 10) / 4 - 5, 25, window, 0, instance, 0);
+
+			Button_SetCheck(checkboxRefresh, 1);
+
 			SetTimer(window, 10001, 200, 0);
 
 			UpdateWindow(window);
@@ -709,9 +713,12 @@ namespace muitv
 
 					displayMode = get_display_mode();
 
-					HTREEITEM root = TreeView_GetRoot(tree);
+					if(!!Button_GetCheck(checkboxRefresh))
+					{
+						HTREEITEM root = TreeView_GetRoot(tree);
 
-					update_tree_display(root, displayMode);
+						update_tree_display(root, displayMode);
+					}
 
 					LeaveCriticalSection(&cs);
 
@@ -740,6 +747,8 @@ namespace muitv
 
 					SetWindowPos(buttonExpandAll, HWND_TOP, 5 + (width - 10) / 4 * 0, 105, (width - 10) / 4 - 5, 25, 0);
 					SetWindowPos(buttonCollapseAll, HWND_TOP, 5 + (width - 10) / 4 * 1, 105, (width - 10) / 4 - 5, 25, 0);
+
+					SetWindowPos(checkboxRefresh, HWND_TOP, 5 + (width - 10) / 4 * 2, 105, (width - 10) / 4 - 5, 25, 0);
 
 					SetWindowPos(tree, HWND_TOP, 5, 135, width - 10, height - 140, 0);
 				}
@@ -786,6 +795,8 @@ namespace muitv
 
 		HWND buttonExpandAll;
 		HWND buttonCollapseAll;
+
+		HWND checkboxRefresh;
 
 		HWND tree;
 
