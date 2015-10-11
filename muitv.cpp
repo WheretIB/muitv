@@ -91,10 +91,9 @@ namespace muitv
 			root->pos = stackElements.size();
 			stackElements.push_back(root);
 
-			dashboardActive = true;
 			dashboardExit = false;
 
-			CreateThread(NULL, 0, detail::window_thread, this, 0, 0);
+			thread = CreateThread(NULL, 0, detail::window_thread, this, 0, 0);
 
 			HINSTANCE instance = GetModuleHandle(0);
 
@@ -118,8 +117,18 @@ namespace muitv
 			// Join dashboard thread
 			dashboardExit = true;
 
-			while(dashboardActive)
+			for(;;)
+			{
 				Sleep(16);
+
+				DWORD exitCode = 0;
+
+				if(GetExitCodeThread(thread, &exitCode) == 0)
+					break;
+
+				if(exitCode != STILL_ACTIVE)
+					break;
+			}
 
 			HeapDestroy(heap);
 
@@ -606,8 +615,6 @@ namespace muitv
 
 				Sleep(16);
 			}
-
-			dashboardActive = false;
 		}
 
 		LRESULT window_message_handle(HWND hWnd, DWORD message, WPARAM wParam, LPARAM lParam)
@@ -771,6 +778,8 @@ namespace muitv
 		hash_map<void*, void*, detail::ptrHash, 8192u> manualMap;
 
 		// Display
+		HANDLE thread;
+
 		HWND window;
 
 		HWND labelAllocCount;
@@ -797,7 +806,6 @@ namespace muitv
 
 		detail::display_info displayMode;
 
-		volatile bool dashboardActive;
 		volatile bool dashboardExit;
 	};
 
