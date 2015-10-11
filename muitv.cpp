@@ -643,8 +643,6 @@ namespace muitv
 					while(HTREEITEM child = TreeView_GetChild(tree, root))
 						TreeView_DeleteItem(tree, child);
 
-					expand_tree_nodes(treeRoot);
-
 					LeaveCriticalSection(&cs);
 				}
 				break;
