@@ -22,6 +22,7 @@
     <ProjectGuid>{5F70B775-2209-4177-BCB4-A329D7AE013C}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>muitv</RootNamespace>
+    <ProjectName>muitv</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
