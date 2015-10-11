@@ -31,6 +31,12 @@ By default, only global new/delete operators are overloaded by the library. In o
 ```
 (Note that this option is currently only available on x86)
 
+#### Using the library with custom allocators
+If you have a custom allocator that is not based on global operators new/delete or malloc/free, two functions, ```muitv_add_object``` and ```muitv_remove_object``` are provided to register the objects.  Note that global new/delete operators will still be added to the tree and if you want to exclude those, before including the 'muitv.h' header file, provide the following definition:
+```
+#define MUITV_MANUAL_ONLY
+```
+
 #### Library use as an event recorder
 As an artifact of the library design, it can be reused to put any call stack to the tree view. In order to create a custom event view, before including the 'muitv.h' header file, provide the following definition:
 ```
