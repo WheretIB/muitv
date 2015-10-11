@@ -626,9 +626,9 @@ namespace muitv
 				{
 					EnterCriticalSection(&cs);
 
-					HTREEITEM root = TreeView_GetRoot(tree);
+					HTREEITEM treeRoot = TreeView_GetRoot(tree);
 
-					expand_tree_nodes(root);
+					expand_tree_nodes(treeRoot);
 
 					LeaveCriticalSection(&cs);
 				}
@@ -636,14 +636,14 @@ namespace muitv
 				{
 					EnterCriticalSection(&cs);
 
-					HTREEITEM root = TreeView_GetRoot(tree);
+					HTREEITEM treeRoot = TreeView_GetRoot(tree);
 
-					TreeView_Expand(tree, root, TVE_COLLAPSE);
+					TreeView_Expand(tree, treeRoot, TVE_COLLAPSE);
 
 					while(HTREEITEM child = TreeView_GetChild(tree, root))
 						TreeView_DeleteItem(tree, child);
 
-					expand_tree_nodes(root);
+					expand_tree_nodes(treeRoot);
 
 					LeaveCriticalSection(&cs);
 				}
@@ -717,9 +717,9 @@ namespace muitv
 
 					if(!!Button_GetCheck(checkboxRefresh))
 					{
-						HTREEITEM root = TreeView_GetRoot(tree);
+						HTREEITEM treeRoot = TreeView_GetRoot(tree);
 
-						update_tree_display(root, displayMode);
+						update_tree_display(treeRoot, displayMode);
 					}
 
 					LeaveCriticalSection(&cs);
